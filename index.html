@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九九クエスト</title>
+    <!-- Tailwind CSS を読み込みます -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Interフォントを読み込み、日本語に適したフォントをフォールバックとして指定します */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            /* ゲームらしい背景色 */
+            background: #f0f9ff; /* 明るい空色 */
+        }
+
+        /* ゲームコンテナのスタイル */
+        #game-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 1.5rem; /* 角を大きく丸く */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border: 4px solid #4a90e2; /* 枠線 */
+        }
+
+        /* モンスターのスタイル */
+        #monster-area {
+            background: #fffbe6; /* 淡い黄色 */
+            border: 2px dashed #facc15; /* 黄色い破線 */
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.2s ease-in-out;
+        }
+        
+        /* モンスターが攻撃を受けた時のアニメーション */
+        .attacked {
+            transform: scale(0.95);
+            animation: shake 0.3s;
+        }
+        
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* ヒントの図（タイル）のスタイル */
+        #hint-grid {
+            display: grid;
+            gap: 4px;
+            margin-top: 1rem;
+            justify-content: center; /* グリッドを中央揃え */
+        }
+
+        .tile {
+            width: 24px;
+            height: 24px;
+            background-color: #3b82f6; /* 青色 */
+            border-radius: 4px;
+        }
+
+        /* RPG風のボタン */
+        .rpg-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 4px solid;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .rpg-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .rpg-button:active {
+            transform: translateY(1px);
+            border-bottom-width: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .btn-attack {
+            background-color: #ef4444; /* 赤 */
+            border-color: #b91c1c; /* 暗い赤 */
+        }
+        
+        .btn-hint {
+            background-color: #3b82f6; /* 青 */
+            border-color: #1d4ed8; /* 暗い青 */
+        }
+
+        .btn-restart {
+            background-color: #10b981; /* 緑 */
+            border-color: #047857; /* 暗い緑 */
+        }
+
+        /* 数字ボタン用のスタイル */
+        .btn-number {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            font-size: 1.5rem; /* 24px */
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 4px solid;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #3b82f6; /* 青 */
+            border-color: #1d4ed8; /* 暗い青 */
+            text-align: center;
+        }
+
+        .btn-number:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-number:active {
+            transform: translateY(1px);
+            border-bottom-width: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .btn-clear {
+            background-color: #f59e0b; /* 黄色/オレンジ */
+            border-color: #b45309; /* 暗い黄色/オレンジ */
+            grid-column: span 1;
+        }
+
+        .btn-zero {
+            grid-column: span 1;
+        }
+
+        .spacer {
+            grid-column: span 1;
+        }
+
+    </style>
+</head>
+<body class="bg-blue-50">
+
+    <div id="game-container" class="w-11/12 md:w-full">
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-blue-600 mb-6">
+            <span class="text-yellow-500">⚔️</span> 九九クエスト <span class="text-yellow-500">⚔️</span>
+        </h1>
+
+        <!-- ゲームプレイ画面 -->
+        <div id="game-play-area">
+            <!-- モンスター表示エリア -->
+            <div id="monster-area" class="mb-6">
+                <div id="monster-emoji" class="text-8xl mb-2"></div>
+                <h2 id="monster-name" class="text-2xl font-bold text-gray-800"></h2>
+                <div class="w-full bg-gray-200 rounded-full h-6 mt-2 border border-gray-300">
+                    <!-- HPバー -->
+                    <div id="monster-hp-bar" class="bg-red-500 h-full rounded-full transition-all duration-500" style="width: 100%;"></div>
+                </div>
+                <span id="monster-hp-text" class="text-sm font-bold text-gray-700">HP: 100/100</span>
+            </div>
+
+            <!-- 問題エリア -->
+            <div id="question-area" class="text-center bg-blue-100 p-6 rounded-lg shadow-inner">
+                <p class="text-xl text-gray-700 mb-4">したの もんだい に こたえよう！</p>
+                <!-- 問題表示 -->
+                <div id="question-text" class="text-5xl font-bold text-blue-800 mb-6">
+                    3 × 5 = ?
+                </div>
+
+                <!-- 回答表示エリア -->
+                <div id="answer-display" class="text-4xl text-center font-bold w-40 p-2 border-4 border-blue-400 rounded-lg bg-white h-16 flex items-center justify-center mx-auto mb-6 text-gray-400">
+                    ?
+                </div>
+                
+                <!-- 数字ボタンパッド -->
+                <div id="number-pad" class="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+                    <!-- 1-9 -->
+                    <button class="btn-number" data-number="1">1</button>
+                    <button class="btn-number" data-number="2">2</button>
+                    <button class="btn-number" data-number="3">3</button>
+                    <button class="btn-number" data-number="4">4</button>
+                    <button class="btn-number" data-number="5">5</button>
+                    <button class="btn-number" data-number="6">6</button>
+                    <button class="btn-number" data-number="7">7</button>
+                    <button class="btn-number" data-number="8">8</button>
+                    <button class="btn-number" data-number="9">9</button>
+                    <!-- Spacer, 0, Clear -->
+                    <div class="spacer"></div>
+                    <button class="btn-number btn-zero" data-number="0">0</button>
+                    <button id="clear-button" class="btn-number btn-clear">けす</button>
+                </div>
+                
+                <!-- メッセージ表示エリア -->
+                <p id="message-area" class="h-6 mt-4 text-lg font-bold"></p>
+            </div>
+
+            <!-- ボタンエリア -->
+            <div class="flex justify-around mt-8">
+                <button id="attack-button" class="rpg-button btn-attack">
+                    こうげき！
+                </button>
+                <button id="hint-button" class="rpg-button btn-hint">
+                    ヒント！
+                </button>
+            </div>
+
+            <!-- ヒント表示エリア -->
+            <div id="hint-area" class="mt-6 p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-center hidden">
+                <p id="hint-text" class="text-lg text-yellow-800 font-bold"></p>
+                <div id="hint-grid"></div>
+            </div>
+        </div>
+
+        <!-- ゲームクリア画面 -->
+        <div id="game-clear-area" class="text-center hidden">
+            <div class="text-8xl mb-6">🎉</div>
+            <h2 class="text-4xl font-bold text-yellow-500 mb-4">ゲームクリア！</h2>
+            <p class="text-2xl text-gray-700 mb-8">
+                すごい！すべてのモンスターをたおしたね！<br>
+                おめでとう！
+            </p>
+            <button id="restart-button" class="rpg-button btn-restart text-2xl">
+                もういちど ぼうけんする
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // モンスターのデータ
+        const monsters = [
+            { name: "スライム", emoji: "💧", maxHp: 2 },
+            { name: "ゴブリン", emoji: "👺", maxHp: 3 },
+            { name: "ゴーレム", emoji: "🗿", maxHp: 4 },
+            { name: "ドラゴン", emoji: "🐉", maxHp: 5 },
+            { name: "まおう", emoji: "👿", maxHp: 6 }
+        ];
+
+        let currentMonsterIndex = 0;
+        let currentMonsterHp = 0;
+        let currentQuestion = { dan: 0, kazu: 0, answer: 0 };
+        let currentAnswerString = ""; // ユーザーの入力を文字列として保持
+
+        // HTML要素の取得
+        const gamePlayArea = document.getElementById('game-play-area');
+        const gameClearArea = document.getElementById('game-clear-area');
+        
+        const monsterEmoji = document.getElementById('monster-emoji');
+        const monsterName = document.getElementById('monster-name');
+        const monsterHpBar = document.getElementById('monster-hp-bar');
+        const monsterHpText = document.getElementById('monster-hp-text');
+        const monsterArea = document.getElementById('monster-area');
+        
+        const questionText = document.getElementById('question-text');
+        // answer-input を削除
+        const answerDisplay = document.getElementById('answer-display'); // 回答表示エリア
+        const numberPad = document.getElementById('number-pad'); // 数字パッド
+        const clearButton = document.getElementById('clear-button'); // けすボタン
+        const messageArea = document.getElementById('message-area');
+        
+        const attackButton = document.getElementById('attack-button');
+        const hintButton = document.getElementById('hint-button');
+        const restartButton = document.getElementById('restart-button');
+        
+        const hintArea = document.getElementById('hint-area');
+        const hintText = document.getElementById('hint-text');
+        const hintGrid = document.getElementById('hint-grid');
+
+        // ゲーム開始処理
+        function startGame() {
+            currentMonsterIndex = 0;
+            gamePlayArea.classList.remove('hidden');
+            gameClearArea.classList.add('hidden');
+            loadMonster(currentMonsterIndex);
+            generateQuestion();
+            updateAnswerDisplay(); // 初期表示
+        }
+
+        // モンスターを読み込む
+        function loadMonster(index) {
+            if (index >= monsters.length) {
+                // ゲームクリア
+                showGameClear();
+                return;
+            }
+            const monster = monsters[index];
+            currentMonsterHp = monster.maxHp;
+            monsterName.textContent = monster.name + " が あらわれた！";
+            monsterEmoji.textContent = monster.emoji;
+            updateHpDisplay();
+        }
+
+        // HP表示を更新
+        function updateHpDisplay() {
+            const monster = monsters[currentMonsterIndex];
+            const hpPercentage = (currentMonsterHp / monster.maxHp) * 100;
+            monsterHpBar.style.width = hpPercentage + '%';
+            monsterHpText.textContent = `HP: ${currentMonsterHp}/${monster.maxHp}`;
+        }
+
+        // 九九の問題を作成
+        function generateQuestion() {
+            // 1から9までのかける数（段）
+            const dan = Math.floor(Math.random() * 9) + 1;
+            // 1から9までのかけられる数
+            const kazu = Math.floor(Math.random() * 9) + 1;
+            
+            currentQuestion = {
+                dan: dan,
+                kazu: kazu,
+                answer: dan * kazu
+            };
+            
+            // 問題を表示（ひらがな対応）
+            questionText.textContent = `${dan} × ${kazu} = ?`;
+            
+            // 入力欄とメッセージをリセット
+            currentAnswerString = '';
+            updateAnswerDisplay();
+            messageArea.textContent = '';
+            hintArea.classList.add('hidden'); // ヒントを隠す
+        }
+
+        // 回答をチェック
+        function checkAnswer() {
+            if (currentAnswerString === "") {
+                showMessage("すうじ を いれてね！", "red");
+                return;
+            }
+
+            const userAnswer = parseInt(currentAnswerString, 10);
+
+            if (isNaN(userAnswer)) {
+                showMessage("すうじ を いれてね！", "red");
+                currentAnswerString = "";
+                updateAnswerDisplay();
+                return;
+            }
+
+            if (userAnswer === currentQuestion.answer) {
+                // 正解
+                showMessage("せいかい！こうげき！", "green");
+                attackMonster();
+            } else {
+                // 不正解（ペナルティなし）
+                showMessage("おしい！ちがうよ。もういちど かんがえよう！", "red");
+                // 不正解の場合、入力内容をクリアする
+                currentAnswerString = "";
+                updateAnswerDisplay();
+            }
+        }
+
+        // モンスターを攻撃
+        function attackMonster() {
+            currentMonsterHp--;
+            updateHpDisplay();
+            
+            // モンスターに攻撃アニメーション
+            monsterArea.classList.add('attacked');
+            setTimeout(() => {
+                monsterArea.classList.remove('attacked');
+            }, 300);
+
+            if (currentMonsterHp <= 0) {
+                // モンスターを倒した
+                showMessage(monsters[currentMonsterIndex].name + " を たおした！", "blue");
+                currentMonsterIndex++;
+                
+                // 次のモンスターへ（少し間を置いて）
+                setTimeout(() => {
+                    if (currentMonsterIndex < monsters.length) {
+                        loadMonster(currentMonsterIndex);
+                        generateQuestion();
+                    } else {
+                        showGameClear();
+                    }
+                }, 1500);
+            } else {
+                // 次の問題へ（少し間を置いて）
+                setTimeout(generateQuestion, 1000);
+            }
+        }
+
+        // ヒントを表示
+        function showHint() {
+            hintArea.classList.remove('hidden');
+            const { dan, kazu } = currentQuestion;
+
+            // ヒント1: 一つ前の九九
+            let hint1 = "";
+            if (kazu > 1) {
+                hint1 = `${dan} × ${kazu - 1} = ${dan * (kazu - 1)} だよ。`;
+            } else {
+                hint1 = `${dan} の だんだね。`;
+            }
+            hintText.textContent = hint1 + " つぎの かず は いくつかな？";
+
+            // ヒント2: 図（タイル）
+            hintGrid.innerHTML = ''; // 前の図を消す
+            hintGrid.style.gridTemplateColumns = `repeat(${kazu}, 24px)`; // 列数を設定
+            
+            for (let i = 0; i < dan * kazu; i++) {
+                const tile = document.createElement('div');
+                tile.classList.add('tile');
+                hintGrid.appendChild(tile);
+            }
+        }
+
+        // メッセージを表示
+        function showMessage(text, color) {
+            messageArea.textContent = text;
+            if (color === "red") {
+                messageArea.style.color = "#ef4444"; // Tailwindのred-500
+            } else if (color === "green") {
+                messageArea.style.color = "#22c55e"; // Tailwindのgreen-500
+            } else if (color === "blue") {
+                messageArea.style.color = "#3b82f6"; // Tailwindのblue-500
+            } else {
+                messageArea.style.color = "#374151"; // Tailwindのgray-700
+            }
+        }
+
+        // ゲームクリア画面を表示
+        function showGameClear() {
+            gamePlayArea.classList.add('hidden');
+            gameClearArea.classList.remove('hidden');
+        }
+
+        // --- 新しい関数 ---
+
+        // 回答表示エリアを更新
+        function updateAnswerDisplay() {
+            if (currentAnswerString === "") {
+                answerDisplay.textContent = "?"; // Placeholder
+                answerDisplay.classList.add('text-gray-400');
+            } else {
+                answerDisplay.textContent = currentAnswerString;
+                answerDisplay.classList.remove('text-gray-400');
+            }
+        }
+
+        // 数字ボタンが押された時の処理
+        function handleNumberClick(number) {
+            if (currentAnswerString.length >= 3) { // 3桁まで（例: 9x9=81、最大でも2桁だが余裕を持つ）
+                return;
+            }
+            currentAnswerString += number;
+            updateAnswerDisplay();
+        }
+
+        // けすボタンが押された時の処理
+        function handleClearClick() {
+            currentAnswerString = "";
+            updateAnswerDisplay();
+        }
+
+        // --- イベントリスナーの設定 ---
+        attackButton.addEventListener('click', checkAnswer);
+        
+        // Enterキーのリスナーを削除
+
+        hintButton.addEventListener('click', showHint);
+        restartButton.addEventListener('click', startGame);
+
+        // 数字パッドのイベントリスナー
+        numberPad.addEventListener('click', (event) => {
+            // クリックされたのが .btn-number クラスを持つボタンか確認
+            if (event.target.matches('.btn-number')) {
+                const number = event.target.dataset.number;
+                if (number) { // data-number 属性があるか (0-9のボタン)
+                    handleNumberClick(number);
+                }
+            }
+        });
+
+        // けすボタンのイベントリスナー
+        clearButton.addEventListener('click', handleClearClick);
+
+
+        // ゲーム開始
+        startGame();
+    </script>
+</body>
+</html>
